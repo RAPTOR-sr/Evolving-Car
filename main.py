@@ -2,6 +2,7 @@ import pygame
 import Box2D
 from Box2D.b2 import (world, polygonShape, circleShape, staticBody, dynamicBody)
 import numpy as np
+import random
 
 #Configuration
 
@@ -68,7 +69,7 @@ class NeuralController:
         child.set_weights(new_wights)
         return child
 
-# --------------------
+
 # PHYSICS: CAR FACTORY
 # --------------------
 
@@ -77,9 +78,15 @@ def create_world_car(controller):
     #box2d world
     world_instance = world(gravity=(0, -9.81), doSleep=True)
     
-    #ground body
-    ground_body = world_instance.CreateStaticBody(position=(0, 1))
-    ground_box = ground_body.CreatePolygonFixture(box=(50, 1), density=0, friction=0.3)
+    # Create uneven terrain as a series of points
+    terrain_points = [(0, 1)]
+    for x in range(1, 50):
+        y = 1 + random.uniform(-1, 2)   # random bumps between -1 and +2
+        terrain_points.append((x, y))
+    ground_body = world_instance.CreateStaticBody(shapes=Box2D.b2ChainShape(vertices=terrain_points))
+    ground_body.CreatePolygonFixture(box=(50, 1), density=0, friction=0.9)
+
+
     
     #car body
     car_body = world_instance.CreateDynamicBody(position=(5, 5))
@@ -87,10 +94,10 @@ def create_world_car(controller):
     
     #car wheels
     wheel1 = world_instance.CreateDynamicBody(position=(4, 4))
-    circle1 = wheel1.CreateCircleFixture(radius=0.4, density=1, friction=0.9)
+    circle1 = wheel1.CreateCircleFixture(radius=0.8, density=1, friction=0.9)
 
     wheel2 = world_instance.CreateDynamicBody(position=(6, 4))
-    circle2 = wheel2.CreateCircleFixture(radius=0.4, density=1, friction=0.9)
+    circle2 = wheel2.CreateCircleFixture(radius=0.8, density=1, friction=0.9)
 
     # Revolute joints (attach wheels to body)
     joint1 = world_instance.CreateRevoluteJoint(bodyA=car_body, bodyB=wheel1,
@@ -135,8 +142,11 @@ def run_simulation(controller, visualize=False):
                     shape = fixture.shape
                     if isinstance(shape, polygonShape):
                         draw_polygon(shape, body , fixture)
-                    elif isinstance(shape, circleShape):
-                        draw_circle(shape, body, fixture)
+                    elif isinstance(shape , circleShape):
+                        draw_circle(shape,body,fixture)
+                    elif isinstance(shape, Box2D.b2ChainShape):
+                        draw_chain(shape, body)
+                    
 
             pygame.display.flip()
             clock.tick(TARGET_FPS)
@@ -150,6 +160,10 @@ def draw_polygon(polygon, body, fixture, color=(0, 0, 255)):
     vertices = [(v[0], SCREEN_HEIGHT - v[1]) for v in vertices]
     pygame.draw.polygon(screen, color, vertices)
 
+def draw_chain(chain, body, color=(0, 128, 0)):
+    vertices = [(body.transform * v) * PPM for v in chain.vertices]
+    vertices = [(v[0], SCREEN_HEIGHT - v[1]) for v in vertices]
+    pygame.draw.lines(screen, color, False, vertices, 3)
 
 def draw_circle(circle, body, fixture, color=(255, 0, 0)):
     position = body.transform * circle.pos * PPM
