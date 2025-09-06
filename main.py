@@ -37,17 +37,34 @@ wheel2 = world.CreateDynamicBody(position=(6, 4))
 circle2 = wheel2.CreateCircleFixture(radius=0.4, density=1, friction=0.9)
 
 # Revolute joints (attach wheels to body)
-world.CreateRevoluteJoint(bodyA=car_body, bodyB=wheel1,
+joint1 = world.CreateRevoluteJoint(bodyA=car_body, bodyB=wheel1,
                           anchor=wheel1.position,
                           enableMotor=True,
                           maxMotorTorque=1000,
                           motorSpeed=0)
 
-world.CreateRevoluteJoint(bodyA=car_body, bodyB=wheel2,
+joint2 = world.CreateRevoluteJoint(bodyA=car_body, bodyB=wheel2,
                           anchor=wheel2.position,
                           enableMotor=True,
                           maxMotorTorque=1000,
                           motorSpeed=0)
+
+# SIMPLE NEURAL NETWORK CONTROLLER
+
+class NeuralController:
+    def __init__(self, input_size=4, hidden_size=5, output_size=2):
+        self.w1 = np.random.randn(input_size, hidden_size)
+        self.b1 = np.random.randn(hidden_size)
+        self.w2 = np.random.randn(hidden_size, output_size)
+        self.b2 = np.random.randn(output_size)
+
+    def Foward(self, x):
+        h = np.tanh(np.dot(x, self.w1) + self.b1)
+        out = np.tanh(np.dot(h, self.w2) + self.b2)
+        return out # output between -1 and 1
+    
+Controller = NeuralController()
+
 
 # DRAWING FUNCTION
 # --------------------
