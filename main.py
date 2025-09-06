@@ -79,24 +79,29 @@ def create_world_car(controller):
     world_instance = world(gravity=(0, -9.81), doSleep=True)
     
     # Create uneven terrain as a series of points
-    terrain_points = [(0, 1)]
-    for x in range(1, 50):
-        y = 1 + random.uniform(-1, 2)   # random bumps between -1 and +2
-        terrain_points.append((x, y))
-    ground_body = world_instance.CreateStaticBody(shapes=Box2D.b2ChainShape(vertices=terrain_points))
-    ground_body.CreatePolygonFixture(box=(50, 1), density=0, friction=0.9)
+    terrain_pints = []
+    y = 3.0 # strating height
+    step_size = 0.5 # CONTROLS SMOOTHNESS
+    for x in range(0,50):
+        if x < 5:
+            y += random.uniform(-step_size*1.5,step_size*1.5)
+        else:
+            y += random.uniform(-step_size,step_size)
+        terrain_pints.append((x,y))
+    ground_body = world_instance.CreateStaticBody(shapes=Box2D.b2ChainShape(vertices=terrain_pints))
+    
 
 
     
     #car body
-    car_body = world_instance.CreateDynamicBody(position=(5, 5))
+    car_body = world_instance.CreateDynamicBody(position=(6, 6))
     box = car_body.CreatePolygonFixture(box=(2, 1), density=1, friction=0.3)
     
     #car wheels
-    wheel1 = world_instance.CreateDynamicBody(position=(4, 4))
+    wheel1 = world_instance.CreateDynamicBody(position=(5, 5))
     circle1 = wheel1.CreateCircleFixture(radius=0.8, density=1, friction=0.9)
 
-    wheel2 = world_instance.CreateDynamicBody(position=(6, 4))
+    wheel2 = world_instance.CreateDynamicBody(position=(7, 5))
     circle2 = wheel2.CreateCircleFixture(radius=0.8, density=1, friction=0.9)
 
     # Revolute joints (attach wheels to body)
