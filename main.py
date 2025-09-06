@@ -9,6 +9,10 @@ PPM = 20.0  # pixels per meter
 TARGET_FPS = 60
 Time_Step = 1.0 / TARGET_FPS
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
+MUTATION_RATE = 0.1
+POPULATION_SIZE = 10     # cars per generation
+SIMULATION_TIME = 5      # seconds per car
+GENERATIONS = 20
 
 #INIT PYGAME
 pygame.init()
@@ -45,7 +49,7 @@ class NeuralController:
     def mutate(self):
         for w in [self.w1, self.b1 , self.w2 , self.b2]:
             mask = np.random.rand(*w.shape) < MUTATION_RATE 
-            W += mask * np.random.normal(0,0.5, w.shape)
+            w += mask * np.random.normal(0,0.5, w.shape)
 
     @staticmethod
     def crossover(parent1 , parent2):
@@ -74,28 +78,28 @@ def create_world_car(controller):
     world_instance = world(gravity=(0, -9.81), doSleep=True)
     
     #ground body
-    ground_body = world.CreateStaticBody(position=(0, 1))
+    ground_body = world_instance.CreateStaticBody(position=(0, 1))
     ground_box = ground_body.CreatePolygonFixture(box=(50, 1), density=0, friction=0.3)
     
     #car body
-    car_body = world.CreateDynamicBody(position=(5, 5))
+    car_body = world_instance.CreateDynamicBody(position=(5, 5))
     box = car_body.CreatePolygonFixture(box=(2, 1), density=1, friction=0.3)
     
     #car wheels
-    wheel1 = world.CreateDynamicBody(position=(4, 4))
+    wheel1 = world_instance.CreateDynamicBody(position=(4, 4))
     circle1 = wheel1.CreateCircleFixture(radius=0.4, density=1, friction=0.9)
 
-    wheel2 = world.CreateDynamicBody(position=(6, 4))
+    wheel2 = world_instance.CreateDynamicBody(position=(6, 4))
     circle2 = wheel2.CreateCircleFixture(radius=0.4, density=1, friction=0.9)
 
     # Revolute joints (attach wheels to body)
-    joint1 = world.CreateRevoluteJoint(bodyA=car_body, bodyB=wheel1,
+    joint1 = world_instance.CreateRevoluteJoint(bodyA=car_body, bodyB=wheel1,
                             anchor=wheel1.position,
                             enableMotor=True,
                             maxMotorTorque=1000,
                             motorSpeed=0)
 
-    joint2 = world.CreateRevoluteJoint(bodyA=car_body, bodyB=wheel2,
+    joint2 = world_instance.CreateRevoluteJoint(bodyA=car_body, bodyB=wheel2,
                             anchor=wheel2.position,
                             enableMotor=True,
                             maxMotorTorque=1000,
@@ -103,6 +107,41 @@ def create_world_car(controller):
     
     return world_instance , car_body , joint1 , joint2 , controller
 
+# FITNESS FUNCTION
+# --------------------
+def run_simulation(controller, visualize=False):
+    w, car, j1, j2, ctrl = create_world_car(controller)
+    sim_steps = int(SIMULATION_TIME * TARGET_FPS)
+
+    for step in range(sim_steps):
+        state = np.array([
+            car.position.x,
+            car.angle,
+            car.linearVelocity.x,
+            car.linearVelocity.y
+        ])
+
+        action = ctrl.Foward(state)
+        left_speed, right_speed = action * 50
+        j1.motorSpeed = left_speed
+        j2.motorSpeed = right_speed
+
+        w.Step(Time_Step, 10, 10)
+
+        if visualize:
+            screen.fill((255, 255, 255))
+            for body in w.bodies:
+                for fixture in body.fixtures:
+                    shape = fixture.shape
+                    if isinstance(shape, polygonShape):
+                        draw_polygon(shape, body , fixture)
+                    elif isinstance(shape, circleShape):
+                        draw_circle(shape, body, fixture)
+
+            pygame.display.flip()
+            clock.tick(TARGET_FPS)
+
+    return car.position.x  # fitness = distance traveled
 
 # DRAWING FUNCTION
 # --------------------
@@ -117,42 +156,36 @@ def draw_circle(circle, body, fixture, color=(255, 0, 0)):
     position = (position[0], SCREEN_HEIGHT - position[1])
     pygame.draw.circle(screen, color, [int(x) for x in position], int(circle.radius * PPM))
 
-
+# GENETIC ALGORITHM LOOP
 # --------------------
-# MAIN LOOP
-# --------------------
-running = True
-while running:
-    screen.fill((255, 255, 255))
+population = [NeuralController() for _ in range(POPULATION_SIZE)]
 
-    # Quit Event
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+for gen in range(GENERATIONS):
+    print(f"Generation {gen+1}")
 
-    # --------------------
-    # Dummy Controller (apply constant torque to wheels)
-    # --------------------
-    for joint in world.joints:
-        joint.motorSpeed = -30  # negative = forward, positive = backward
+    # Evaluate fitness
+    fitness_scores = []
+    for i, ctrl in enumerate(population):
+        fitness = run_simulation(ctrl, visualize=(i == 0))  # visualize first car
+        fitness_scores.append((fitness, ctrl))
 
-    # --------------------
-    # Step Physics
-    # --------------------
-    world.Step(Time_Step, 10, 10)
+    # Sort by fitness
+    fitness_scores.sort(key=lambda x: x[0], reverse=True)
+    best_fitness, best_ctrl = fitness_scores[0]
+    print(f"  Best fitness: {best_fitness:.2f}")
 
-    # --------------------
-    # Draw Bodies
-    # --------------------
-    for body in world.bodies:
-        for fixture in body.fixtures:
-            shape = fixture.shape
-            if isinstance(shape, polygonShape):
-                draw_polygon(shape, body, fixture)
-            elif isinstance(shape, circleShape):
-                draw_circle(shape, body, fixture)
+    # Selection: keep top 50%
+    survivors = [ctrl for _, ctrl in fitness_scores[:POPULATION_SIZE // 2]]
 
-    pygame.display.flip()
-    clock.tick(TARGET_FPS)
+    # Reproduce
+    new_population = survivors.copy()
+    while len(new_population) < POPULATION_SIZE:
+        p1, p2 = np.random.choice(survivors, 2, replace=False)
+        child = NeuralController.crossover(p1, p2)
+        child.mutate()
+        new_population.append(child)
+
+    population = new_population
 
 pygame.quit()
+
