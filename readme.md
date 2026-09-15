@@ -67,10 +67,6 @@ Some ideas for extending this project:
 - Try different neural network architectures
 - Add a user interface for adjusting parameters in real-time
 
-## License
-
-
-
 ## Acknowledgments
 
 - Box2D for the physics simulation
