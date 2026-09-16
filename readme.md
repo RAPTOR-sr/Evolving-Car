@@ -25,7 +25,7 @@ This project simulates a population of cars that learn to traverse uneven terrai
 
 ## Requirements
 
-- Python 3.6+
+- Python 3.8+
 - Pygame
 - Box2D
 - NumPy
