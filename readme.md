@@ -43,6 +43,7 @@ pip install pygame box2d numpy
 
 ## Usage
 
+Simply run the main Python file and enjoy:
 
 
 ```bash
